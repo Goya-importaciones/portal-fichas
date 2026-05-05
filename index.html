@@ -529,7 +529,8 @@ function extraerVarianteMarcaje(m){
     match=c.match(/^([A-Z]+)(\d+)$/i);
     if(match && /PRINTING|LASER|SCREEN|SERIGRAFIA|TAMPON|PAD|DIGITAL|DTF/i.test(t)) variant=match[2];
   }
-  return {base:base.replace(/\s+/g,' ').trim(), variant};
+  base=base.replace(/\bVINYL GLITTER\b/i,'VINYL GLITTER').replace(/\bP(?:RINT)?\s*(\d+)$/i,'').replace(/\bP\d+$/i,'').replace(/\s+/g,' ').trim();
+  return {base, variant};
 }
 
 function medidaCrudaMarcaje(m){
