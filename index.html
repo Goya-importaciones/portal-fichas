@@ -747,6 +747,22 @@ function i2b(url,targetW,targetH){
     img.onload=()=>{
       try{
         const ratio=targetW&&targetH?targetW/targetH:img.naturalWidth/img.naturalHeight;
+        const frameW=900;
+        const frameH=Math.round(frameW/ratio);
+        const c=document.createElement('canvas');
+        c.width=frameW;c.height=frameH;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle='#fff';
+        ctx.fillRect(0,0,frameW,frameH);
+        const scale=Math.min(frameW/img.naturalWidth,frameH/img.naturalHeight);
+        const dw=Math.round(img.naturalWidth*scale);
+        const dh=Math.round(img.naturalHeight*scale);
+        const dx=Math.round((frameW-dw)/2);
+        const dy=Math.round((frameH-dh)/2);
+        ctx.drawImage(img,dx,dy,dw,dh);
+        res(c.toDataURL('image/jpeg',.88));
+        return;
+        /*
         const srcRatio=img.naturalWidth/img.naturalHeight;
         let sx=0,sy=0,sw=img.naturalWidth,sh=img.naturalHeight;
         if(srcRatio>ratio){
@@ -762,6 +778,7 @@ function i2b(url,targetW,targetH){
         c.width=sw;c.height=sh;
         c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
         res(c.toDataURL('image/jpeg',.88));
+        */
       }catch{res(null);}
     };
     img.onerror=()=>res(null);img.src=url;
