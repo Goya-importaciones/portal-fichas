@@ -475,7 +475,9 @@ function renderModal(){
 
 function fmtMedidaMarcaje(m,conUnidad){
   if(m.ancho_max&&m.alto_max)return `${m.ancho_max} x ${m.alto_max}${conUnidad?' cm max.':''}`;
-  return 'Consultar';
+  const inferred=(m.tecnica||'').match(/MAX\.?\s*([0-9]+(?:[,.][0-9]+)?)\s*[Xx]\s*([0-9]+(?:[,.][0-9]+)?)/);
+  if(inferred)return `${inferred[1]} x ${inferred[2]}${conUnidad?' cm max.':''}`;
+  return '';
 }
 
 function fmtTecnicaMarcaje(m){
@@ -712,7 +714,7 @@ async function generarPDF(){
         if(i%2===0){doc.setFillColor(250,249,247);doc.rect(col2,yR-3.7,tw,rowH,'F');}
         doc.setTextColor(24,22,15);
         doc.text(lines,col2+2,yR+.3,{lineHeightFactor:1.15});
-        doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(medida==='Consultar'?120:60,medida==='Consultar'?115:56,medida==='Consultar'?108:50);doc.text(medida,W-mar-2,yR+.3,{align:'right'});
+        if(medida){doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(60,56,50);doc.text(medida,W-mar-2,yR+.3,{align:'right'});}
         yR+=rowH;
       });
     }
