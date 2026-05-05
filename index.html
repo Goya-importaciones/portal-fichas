@@ -709,7 +709,6 @@ async function generarPDF(){
         doc.setTextColor(24,22,15);
         doc.text(lines,col2+2,yR+.3,{lineHeightFactor:1.15});
         doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(medida==='Consultar'?120:60,medida==='Consultar'?115:56,medida==='Consultar'?108:50);doc.text(medida,W-mar-2,yR+.3,{align:'right'});
-        if(m.ancho_max&&m.alto_max){doc.setFont('helvetica','bold');doc.setTextColor(60,56,50);doc.text(`${m.ancho_max}×${m.alto_max}`,W-mar-2,yR+.3,{align:'right'});}
         yR+=rowH;
       });
     }
