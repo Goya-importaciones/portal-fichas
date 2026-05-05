@@ -150,10 +150,14 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 .imgthumb{position:relative;cursor:pointer;border-radius:var(--r);overflow:hidden;aspect-ratio:1;border:2px solid transparent;transition:background .15s,border-color .15s,color .15s}
 .imgthumb:hover{border-color:var(--bm)}
 .imgthumb.on{border-color:var(--t)}
+.imgthumb.dis{cursor:not-allowed;filter:grayscale(.35);opacity:.42}
+.imgthumb.dis:hover{border-color:transparent}
 .imgthumb img{width:100%;height:100%;object-fit:cover;display:block}
 .imgthumb-ck{position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--t);display:none;align-items:center;justify-content:center}
 .imgthumb.on .imgthumb-ck{display:flex}
 .imgthumb-ck::after{content:'';width:7px;height:4px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-1px)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);background:var(--t);color:#fff;border-radius:var(--r);padding:9px 13px;font-size:13px;box-shadow:0 10px 26px rgba(0,0,0,.22);z-index:400;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .mft{padding:1rem 1.5rem;border-top:1px solid var(--b);display:flex;gap:8px;justify-content:flex-end;background:var(--s)}
 .btn-c{background:none;border:1px solid var(--b);border-radius:var(--r);padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--mu)}
@@ -238,10 +242,12 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 let PRODS=[],PROD_BY_REF=new Map(),filt=[],sel=new Set(),pg=1,ord='nuevo';
 const PPG=24;
 const MAX_MODAL_IMGS=12;
+const MAX_PDF_IMGS=6;
 const imgSel={};
 let activeChip=null;
 let DETALLE=null; // se carga lazy al primer modal
 let detallePromise=null;
+let toastTimer=null;
 
 // Intersection Observer para lazy load — se crea una sola vez
 let observer=null;
@@ -479,10 +485,11 @@ function renderSI(p,inclM,inclV){
   const imgSelHtml=imgs.length?`
     <div class="imgsel">
       <div class="si-sec">Imágenes para el PDF <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mu)">(haz clic para seleccionar)</span></div>
-      <div class="imgsel-grid">
+      <div class="imgsel-grid" data-ref="${esc(p.ref)}">
         ${imgs.slice(0,MAX_MODAL_IMGS).map((url,i)=>{
           const on=(imgSel[p.ref]&&imgSel[p.ref].has(url))||(!imgSel[p.ref]&&i===0);
-          return `<div class="imgthumb${on?' on':''}" onclick="togImg('${esc(p.ref)}','${esc(url)}',this)">
+          const blocked=!on&&imgSel[p.ref]&&imgSel[p.ref].size>=MAX_PDF_IMGS;
+          return `<div class="imgthumb${on?' on':''}${blocked?' dis':''}" onclick="togImg('${esc(p.ref)}','${esc(url)}',this)">
             <img src="${url}" loading="lazy" onerror="this.src=''" alt="">
             <div class="imgthumb-ck"></div>
           </div>`;
@@ -518,8 +525,35 @@ function togImg(ref,url,el){
     if(imgSel[ref].size<=1)return;
     imgSel[ref].delete(url);el.classList.remove('on');
   }else{
+    if(imgSel[ref].size>=MAX_PDF_IMGS){
+      toast(`Maximo de ${MAX_PDF_IMGS} imagenes por producto`);
+      syncImgThumbs(ref);
+      return;
+    }
     imgSel[ref].add(url);el.classList.add('on');
   }
+  syncImgThumbs(ref);
+}
+
+function syncImgThumbs(ref){
+  const maxed=imgSel[ref]&&imgSel[ref].size>=MAX_PDF_IMGS;
+  document.querySelectorAll(`.imgsel-grid[data-ref="${cssEsc(ref)}"] .imgthumb`).forEach(t=>{
+    t.classList.toggle('dis',maxed&&!t.classList.contains('on'));
+  });
+}
+
+function toast(msg){
+  let el=document.getElementById('toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='toast';
+    el.className='toast';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),1800);
 }
 
 function qSel(ref){
@@ -531,6 +565,7 @@ function qSel(ref){
 }
 
 function esc(s){return(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function cssEsc(s){return(s+'').replace(/\\/g,'\\\\').replace(/"/g,'\\"');}
 
 // ─── PDF ───
 async function generarPDF(){
