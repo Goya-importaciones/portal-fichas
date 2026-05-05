@@ -478,6 +478,10 @@ function fmtMedidaMarcaje(m,conUnidad){
   return 'Consultar';
 }
 
+function fmtTecnicaMarcaje(m){
+  return `${m.tecnica||''}${m.zona?` - ${m.zona}`:''}`;
+}
+
 function renderSI(p,inclM,inclV){
   const imgs=p.imagenes||[];
   const dims=[];
@@ -487,7 +491,7 @@ function renderSI(p,inclM,inclV){
   if(p.peso_gr)dims.push(['Peso',p.peso_gr+' gr']);
   if(p.pais_origen)dims.push(['País',p.pais_origen]);
 
-  const mH=inclM&&p.marcaje?.length?`<div class="si-sec">Técnicas de marcaje</div><div>${p.marcaje.map(m=>`<div class="mrow"><span class="mtec">${m.tecnica}</span>${m.codigo?`<span class="mcod">${m.codigo}</span>`:''}<span class="mmed">${fmtMedidaMarcaje(m,true)}</span></div>`).join('')}</div>`:'';
+  const mH=inclM&&p.marcaje?.length?`<div class="si-sec">Técnicas de marcaje</div><div>${p.marcaje.map(m=>`<div class="mrow"><span class="mtec">${fmtTecnicaMarcaje(m)}</span>${m.codigo?`<span class="mcod">${m.codigo}</span>`:''}<span class="mmed">${fmtMedidaMarcaje(m,true)}</span></div>`).join('')}</div>`:'';
   const vH=inclV&&p.variantes?.length?`<div class="si-sec" style="margin-top:10px">Variantes (${p.variantes.length})</div><div class="vars">${p.variantes.map(v=>`<div class="vchip">${v.color_hex?`<div class="dot" style="background:${v.color_hex}"></div>`:''}<span>${v.descripcion||v.codigo}</span></div>`).join('')}</div>`:'';
 
   // Selector de imágenes
@@ -679,14 +683,14 @@ async function generarPDF(){
     if(inclV&&p.variantes?.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(160,155,148);
       doc.text('VARIANTES DE COLOR',col2,yR);yR+=5;
-      let vx=col2,rowH=14;
+      let vx=col2,rowH=6;
       p.variantes.forEach(v=>{
-        if(vx+30>W-mar){vx=col2;yR+=rowH;}
-        if(v.color_hex){const rgb=h2r(v.color_hex);if(rgb){doc.setFillColor(rgb.r,rgb.g,rgb.b);doc.circle(vx+3,yR+1,3,'F');doc.setDrawColor(200,195,188);doc.setLineWidth(.18);doc.circle(vx+3,yR+1,3,'S');}}
-        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(60,56,50);
-        doc.text(v.descripcion||v.codigo,vx+8,yR+2.5,{maxWidth:20});vx+=30;
+        if(vx+22>W-mar){vx=col2;yR+=rowH;}
+        if(v.color_hex){const rgb=h2r(v.color_hex);if(rgb){doc.setFillColor(rgb.r,rgb.g,rgb.b);doc.circle(vx+2.2,yR+.8,2.2,'F');doc.setDrawColor(200,195,188);doc.setLineWidth(.18);doc.circle(vx+2.2,yR+.8,2.2,'S');}}
+        doc.setFont('helvetica','normal');doc.setFontSize(5.8);doc.setTextColor(60,56,50);
+        doc.text(v.descripcion||v.codigo,vx+5.5,yR+2,{maxWidth:15});vx+=22;
       });
-      yR+=rowH+5;
+      yR+=rowH+3;
     }
 
     if(inclM&&p.marcaje?.length){
@@ -703,7 +707,7 @@ async function generarPDF(){
         doc.setFont('helvetica','normal');doc.setFontSize(7);
         const medida=fmtMedidaMarcaje(m,false);
         const textW=medida?tw-31:tw-5;
-        const lines=doc.splitTextToSize(m.tecnica||'',textW);
+        const lines=doc.splitTextToSize(fmtTecnicaMarcaje(m),textW);
         const rowH=Math.max(6,lines.length*3.6+2.4);
         if(i%2===0){doc.setFillColor(250,249,247);doc.rect(col2,yR-3.7,tw,rowH,'F');}
         doc.setTextColor(24,22,15);
