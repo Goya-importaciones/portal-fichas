@@ -139,9 +139,7 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 .si-desc{font-size:12px;color:var(--mu);line-height:1.55;margin-bottom:10px}
 .mrow{display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--b)}
 .mrow:last-child{border:none}
-.mtec{flex:1;color:var(--mu)}
-.mcod{font-size:10px;background:var(--tag);padding:2px 6px;border-radius:4px;color:var(--tagc)}
-.mmed{font-size:11px;font-weight:600;color:var(--t);white-space:nowrap}
+.mtec{flex:1;color:var(--mu);line-height:1.35}
 .vars{display:flex;gap:4px;flex-wrap:wrap}
 .vchip{display:flex;align-items:center;gap:4px;padding:3px 7px;border:1px solid var(--b);border-radius:20px;font-size:11px;color:var(--mu)}
 
@@ -533,19 +531,6 @@ function extraerVarianteMarcaje(m){
   return {base, variant};
 }
 
-function medidaCrudaMarcaje(m){
-  if(m.ancho_max&&m.alto_max)return `${m.ancho_max} x ${m.alto_max}`;
-  const inferred=(m.tecnica||'').match(/MAX\.?\s*([0-9]+(?:[,.][0-9]+)?)\s*[Xx]\s*([0-9]+(?:[,.][0-9]+)?)/);
-  if(inferred)return `${inferred[1]} x ${inferred[2]}`;
-  return '';
-}
-
-function fmtMedidaMarcaje(m,conUnidad){
-  const t=medidaCrudaMarcaje(m);
-  if(t)return `${t}${conUnidad?' cm max.':''}`;
-  return 'Consultar';
-}
-
 function getMarcajesVista(arr){
   const marks=Array.isArray(arr)?arr:[];
   const groups=[];
@@ -556,14 +541,12 @@ function getMarcajesVista(arr){
     const key=`${base}|${zone}`;
     let g=map.get(key);
     if(!g){
-      g={base,zone,items:[],variants:[],measures:new Set(),codes:new Set(),first:idx};
+      g={base,zone,items:[],variants:[],codes:new Set(),first:idx};
       map.set(key,g);
       groups.push(g);
     }
     g.items.push(m);
     if(variant)g.variants.push(variant);
-    const meas=medidaCrudaMarcaje(m);
-    if(meas)g.measures.add(meas);
     if(m.codigo)g.codes.add(normTxt(m.codigo).toUpperCase());
   });
 
@@ -597,15 +580,96 @@ function getMarcajesVista(arr){
         codigo=codeList.join(' / ');
       }
     }
-    const measures=[...g.measures];
-    const medida=measures.length===1?measures[0]:(measures.length>1?measures.join(' / '):'');
-    const [ancho_max,alto_max]=medida?medida.split(' x '):['',''];
-    return {tecnica:label,codigo,zona:g.zone,ancho_max,alto_max,_count:g.items.length};
+    return {tecnica:label,codigo,zona:g.zone,_count:g.items.length};
   });
 }
 
 function fmtTecnicaMarcaje(m){
-  return `${m.tecnica||''}${m.zona?` - ${m.zona}`:''}`;
+  const tec=simplificarTecnicaMarcaje(m.tecnica||'');
+  const zona=simplificarZonaMarcaje(m.zona||'');
+  return `${tec}${zona?` - ${zona}`:''}`;
+}
+
+function titleCaseMarcaje(s){
+  const lower=normTxt(s).toLowerCase();
+  return lower.replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function simplificarTecnicaMarcaje(tecnica){
+  let t=normTxt(tecnica).toUpperCase();
+  if(!t)return '';
+
+  const colorMatch=t.match(/(\d+)\s*(?:COLOU?RS?|COLORES?|COLOR)\b/);
+  const colours=colorMatch?` ${colorMatch[1]} color${colorMatch[1]==='1'?'':'es'}`:'';
+  const sideMatch=t.match(/(\d+)\s*(?:SIDE|SIDES|CARA|CARAS|FACE|FACES)\b/);
+  const sides=sideMatch?` ${sideMatch[1]} cara${sideMatch[1]==='1'?'':'s'}`:'';
+  const refMatch=t.match(/\bREF\.?\s*([A-Z0-9]+)\b/);
+  const ref=refMatch?` ref. ${refMatch[1]}`:'';
+
+  if(/ETIQUETA|LABEL/.test(t)){
+    if(/ADHESIVE|ADHESIVA/.test(t))return `Etiqueta adhesiva${ref}`;
+    if(/BAG|BOLSA/.test(t))return `Etiqueta para bolsa${ref}`;
+    if(/BLANKET|MANTA/.test(t))return `Etiqueta para manta${ref}`;
+    if(/TOILETRY|NECESER/.test(t))return `Etiqueta para neceser${ref}`;
+    if(/PAREO/.test(t))return `Etiqueta para pareo${ref}`;
+    if(/ROUND|REDONDA/.test(t))return `Etiqueta redonda${ref}`;
+    if(/SQUARE|CUADRADA/.test(t))return `Etiqueta cuadrada${ref}`;
+    return `Etiqueta personalizada${ref}`;
+  }
+  if(/RIBBON|CINTA|TAPE/.test(t)){
+    if(/SUBLIMATION|SUBLIMACION/.test(t))return `Cinta sublimada${ref}`;
+    if(/POLYESTER|POLIESTER/.test(t))return `Cinta de poliester${colours}${ref}`;
+    if(/NON WOVEN/.test(t))return `Cinta non woven${colours}${ref}`;
+    if(/COTTON|ALGODON/.test(t))return `Cinta de algodon${ref}`;
+    return `Cinta personalizada${colours}${ref}`;
+  }
+  if(/VINYL GLITTER|VINILO PURPURINA/.test(t))return `Vinilo purpurina${ref}`;
+  if(/SILKSCREEN TRANSFER|TRANSFER SERIGRAFICO/.test(t))return `Transfer serigrafico${colours}${ref}`;
+  if(/SCREENPRINT ON SILICONE|SERIGRAFIA SOBRE SILICONA/.test(t))return `Serigrafia sobre silicona${ref}`;
+  if(/CIRCULAR SCREEN PRINTING|SERIGRAFIA CIRCULAR/.test(t))return `Serigrafia circular${ref}`;
+  if(/SCREEN PRINTING|SILK-SCREEN|SERIGRAFIA/.test(t))return `Serigrafia${colours}${/DOBLE|DOUBLE/.test(t)?' doble pasada':''}${ref}`;
+  if(/TAMPON PRINTING|PAD PRINTING|TAMPOGRAFIA|TAMPO/.test(t))return `Tampografia${colours}${ref}`;
+  if(/WOOD LASER|LASER MADERA/.test(t))return `Laser madera${ref}`;
+  if(/CRYSTAL LASER|LASER CRISTAL/.test(t))return `Laser cristal${ref}`;
+  if(/LASER/.test(t))return `Laser${ref}`;
+  if(/FULL PRINT.*DTF|DTF/.test(t))return `DTF${ref}`;
+  if(/DIRECT TEXTILE|TEXTIL DTG/.test(t))return `Impresion directa textil${ref}`;
+  if(/DIGITAL PRINTING|DIGITAL MARKING|IMPRESION DIGITAL|MARCAJE DIGITAL/.test(t))return `Impresion digital${ref}`;
+  if(/SUBLIMATION|SUBLIMACION/.test(t))return `Sublimacion${sides}${ref}`;
+  if(/EMBROIDERY|BORDADO/.test(t))return `Bordado${ref}`;
+  if(/THERMO PRINTING|COLOR PRINTING THERMOS/.test(t))return `Impresion termo${ref}`;
+  if(/ORIGIN MARKING|MARCAJE ORIGEN/.test(t))return `Marcaje en origen${ref}`;
+  if(/SINGLE BAGGED|EMBOLSADO INDIVIDUAL/.test(t))return `Embolsado individual${ref}`;
+  if(/TINT|PLANCHADO/.test(t))return `Planchado tintado${ref}`;
+
+  return titleCaseMarcaje(t).replace(/\bDtf\b/g,'DTF').replace(/\bDg\b/g,'DG');
+}
+
+function simplificarZonaMarcaje(zona){
+  const z=normTxt(zona).toUpperCase();
+  if(!z)return '';
+  const map={
+    'BOX':'caja',
+    'STICK':'varilla',
+    'FRONT STICK':'varilla frontal',
+    'LASER STICK':'varilla laser',
+    'FRONT':'frontal',
+    'FRONT MARKING':'frontal',
+    'MARCAJE FRONTAL - FRONT MARKING':'frontal',
+    'BACK':'trasera',
+    'BACK MARKING':'trasera',
+    'RIGHT':'derecha',
+    'LEFT':'izquierda',
+    'TOP':'superior',
+    'BOTTOM':'inferior',
+    'STRAP':'tira',
+    'BOTH':'ambos lados',
+    'LABEL':'etiqueta',
+    'LID':'tapa',
+    'EVERY SIDE':'todos los lados',
+    'CIRCULAR SCREEN PRINTING':'circular'
+  };
+  return map[z]||titleCaseMarcaje(z);
 }
 
 function renderSI(p,inclM,inclV){
@@ -618,7 +682,7 @@ function renderSI(p,inclM,inclV){
   if(p.pais_origen)dims.push(['País',p.pais_origen]);
 
   const mView=getMarcajesVista(p.marcaje);
-  const mH=inclM&&mView.length?`<div class="si-sec">T?cnicas de marcaje</div><div>${mView.map(m=>`<div class="mrow"><span class="mtec">${fmtTecnicaMarcaje(m)}</span>${m.codigo?`<span class="mcod">${m.codigo}</span>`:''}<span class="mmed">${fmtMedidaMarcaje(m,true)}</span></div>`).join('')}</div>`:'';
+  const mH=inclM&&mView.length?`<div class="si-sec">T?cnicas de marcaje</div><div>${mView.map(m=>`<div class="mrow"><span class="mtec">${fmtTecnicaMarcaje(m)}</span></div>`).join('')}</div>`:'';
   const vH=inclV&&p.variantes?.length?`<div class="si-sec" style="margin-top:10px">Variantes (${p.variantes.length})</div><div class="vars">${p.variantes.map(v=>`<div class="vchip">${v.color_hex?`<div class="dot" style="background:${v.color_hex}"></div>`:''}<span>${v.descripcion||v.codigo}</span></div>`).join('')}</div>`:'';
 
   // Selector de imágenes
@@ -831,18 +895,15 @@ async function generarPDF(){
       doc.setFillColor(238,235,230);doc.rect(col2,yR-3.5,tw,5.5,'F');
       doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(140,135,128);
       doc.text('Técnica',col2+2,yR+.3);
-      doc.text('Medida max.',W-mar-2,yR+.3,{align:'right'});
       yR+=5;
       mView.forEach((m,i)=>{
         doc.setFont('helvetica','normal');doc.setFontSize(7);
-        const medida=fmtMedidaMarcaje(m,false);
-        const textW=medida?tw-31:tw-5;
+        const textW=tw-5;
         const lines=doc.splitTextToSize(fmtTecnicaMarcaje(m),textW);
         const rowH=Math.max(6,lines.length*3.6+2.4);
         if(i%2===0){doc.setFillColor(250,249,247);doc.rect(col2,yR-3.7,tw,rowH,'F');}
         doc.setTextColor(24,22,15);
         doc.text(lines,col2+2,yR+.3,{lineHeightFactor:1.15});
-        if(medida){doc.setFont('helvetica','bold');doc.setFontSize(6.8);doc.setTextColor(60,56,50);doc.text(medida,W-mar-2,yR+.3,{align:'right'});}
         yR+=rowH;
       });
     }
