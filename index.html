@@ -233,7 +233,7 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
       <button class="btn-c" onclick="cerrar()">Cancelar</button>
       <button class="btn-pdf" id="btnPDF" onclick="generarPDF()">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg>
-        Descargar PDF
+        Previsualizar PDF
       </button>
     </div>
   </div>
@@ -714,9 +714,17 @@ async function generarPDF(){
     doc.text(`${idx+1} / ${prods.length}`,W-mar,H-4,{align:'right'});
   }
 
-  doc.save(`goya-fichas-${new Date().toISOString().slice(0,10)}.pdf`);
+  const blob=doc.output('blob');
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){
+    doc.save(`goya-fichas-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('El navegador bloqueo la vista previa; se descarga el PDF');
+  }else{
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
   btn.disabled=false;
-  btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg> Descargar PDF';
+  btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg> Previsualizar PDF';
 }
 
 function i2b(url,targetW,targetH){
