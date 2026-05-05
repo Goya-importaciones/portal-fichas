@@ -381,7 +381,7 @@ function card(p){
   const tags=[];
   if(p.es_new)tags.push(`<span class="ctag" style="background:#EBF3EC;color:#2F6B3A;font-weight:600">NEW</span>`);
   if(p.es_outlet)tags.push(`<span class="ctag" style="background:#FFF3E0;color:#C07020;font-weight:600">OUTLET</span>`);
-  const nm=p.n_marcaje||p.marcaje?.length||0;
+  const nm=getMarcajesVista(p.marcaje).length||p.n_marcaje||0;
   if(nm)tags.push(`<span class="ctag g">${nm} técnica${nm>1?'s':''}</span>`);
   return `<div class="card${s?' sel':''}" data-ref="${esc(p.ref)}" onclick="togSel('${esc(p.ref)}',this)">
     <div class="chkc"></div>
@@ -473,11 +473,134 @@ function renderModal(){
   document.getElementById('slist').innerHTML=prods.map(p=>renderSI(p,inclM,inclV)).join('');
 }
 
-function fmtMedidaMarcaje(m,conUnidad){
-  if(m.ancho_max&&m.alto_max)return `${m.ancho_max} x ${m.alto_max}${conUnidad?' cm max.':''}`;
+function normTxt(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+}
+
+function canonZona(z){
+  const t=normTxt(z).toUpperCase();
+  if(!t)return '';
+  const map={
+    'CAJA':'BOX',
+    'VARILLA':'STICK',
+    'VARILLA FRONTAL SUPERIOR':'FRONT STICK',
+    'VARILLA LASER':'LASER STICK',
+    'VARILLA LASER TRASERA':'VARILLA LASER TRASERA',
+    'VARILLA TRASERA':'BACK',
+    'FRONTAL':'FRONT MARKING',
+    'TRASERA':'BACK MARKING',
+    'TIRA':'STRAP',
+    'DERECHA':'RIGHT',
+    'IZQUIERDA':'LEFT',
+    'SUPERIOR':'TOP',
+    'INFERIOR':'BOTTOM',
+    'HORIZONTAL':'HORIZONTAL',
+    'VERTICAL':'VERTICAL',
+    'BOX':'BOX',
+    'STICK':'STICK',
+    'FRONT':'FRONT',
+    'BACK':'BACK',
+    'RIGHT':'RIGHT',
+    'LEFT':'LEFT',
+    'TOP':'TOP',
+    'BOTTOM':'BOTTOM',
+    'STRAP':'STRAP',
+    'BOTH':'BOTH',
+    'LABEL':'LABEL',
+  };
+  return map[t]||t;
+}
+
+function extraerVarianteMarcaje(m){
+  const t=normTxt(m.tecnica).toUpperCase();
+  const c=normTxt(m.codigo).toUpperCase();
+  let base=t, variant='';
+  let match=t.match(/^(.*?FULL PRINT MEASURE DTF)\s*(\d+)$/i);
+  if(match){base=match[1];variant=match[2];}
+  else if(match=t.match(/^(.*?)(?:\s*-\s*)?(\d+)\s*COLOU?RS?$/i)){base=match[1];variant=match[2];}
+  else if(match=t.match(/^(.*?)(?:\s*-\s*)?(\d+)\s*COLOR(?:ES)?$/i)){base=match[1];variant=match[2];}
+  else if(match=t.match(/^(.*?)(?:\s+)([A-Z]{1,3})(\d+)$/i)){
+    if(/PRINTING|LASER|SCREEN|SERIGRAFIA|TAMPON|PAD|DIGITAL|DTF/i.test(t)){base=match[1];variant=match[3];}
+  }
+  else if(match=t.match(/^(.*?)(?:\s+)(\d+)$/i)){
+    if(/PRINTING|LASER|SCREEN|SERIGRAFIA|TAMPON|PAD|DIGITAL|DTF/i.test(t)){base=match[1];variant=match[2];}
+  }
+  if(!variant){
+    match=c.match(/^([A-Z]+)(\d+)$/i);
+    if(match && /PRINTING|LASER|SCREEN|SERIGRAFIA|TAMPON|PAD|DIGITAL|DTF/i.test(t)) variant=match[2];
+  }
+  return {base:base.replace(/\s+/g,' ').trim(), variant};
+}
+
+function medidaCrudaMarcaje(m){
+  if(m.ancho_max&&m.alto_max)return `${m.ancho_max} x ${m.alto_max}`;
   const inferred=(m.tecnica||'').match(/MAX\.?\s*([0-9]+(?:[,.][0-9]+)?)\s*[Xx]\s*([0-9]+(?:[,.][0-9]+)?)/);
-  if(inferred)return `${inferred[1]} x ${inferred[2]}${conUnidad?' cm max.':''}`;
+  if(inferred)return `${inferred[1]} x ${inferred[2]}`;
+  return '';
+}
+
+function fmtMedidaMarcaje(m,conUnidad){
+  const t=medidaCrudaMarcaje(m);
+  if(t)return `${t}${conUnidad?' cm max.':''}`;
   return 'Consultar';
+}
+
+function getMarcajesVista(arr){
+  const marks=Array.isArray(arr)?arr:[];
+  const groups=[];
+  const map=new Map();
+  marks.forEach((m,idx)=>{
+    const {base,variant}=extraerVarianteMarcaje(m);
+    const zone=canonZona(m.zona);
+    const key=`${base}|${zone}`;
+    let g=map.get(key);
+    if(!g){
+      g={base,zone,items:[],variants:[],measures:new Set(),codes:new Set(),first:idx};
+      map.set(key,g);
+      groups.push(g);
+    }
+    g.items.push(m);
+    if(variant)g.variants.push(variant);
+    const meas=medidaCrudaMarcaje(m);
+    if(meas)g.measures.add(meas);
+    if(m.codigo)g.codes.add(normTxt(m.codigo).toUpperCase());
+  });
+
+  return groups.map(g=>{
+    const uniqVariants=[...new Set(g.variants.map(v=>String(v).trim()).filter(Boolean))];
+    const nums=uniqVariants.map(v=>parseFloat(String(v).replace(',','.'))).filter(Number.isFinite).sort((a,b)=>a-b);
+    let label=g.base||'';
+    if(g.items.length>1 && nums.length){
+      const min=nums[0], max=nums[nums.length-1];
+      const range=min===max?`${min}`:`${min}-${max}`;
+      if(/DTF/i.test(label)) label=`${label} ${range}`.trim();
+      else if(/COLOR|COLOUR/i.test(label)) label=`${label} ${range} COLOURS`.trim();
+      else label=`${label} ${range}`.trim();
+    }
+    const codeList=[...g.codes];
+    let codigo='';
+    if(codeList.length===1){
+      codigo=codeList[0];
+    }else if(codeList.length>1){
+      const parts=codeList.map(c=>{const m=String(c).match(/^([A-Z]+)(\d+)$/i);return m?{p:m[1],n:parseInt(m[2],10),raw:String(c)}:{raw:String(c)};});
+      if(parts.every(x=>x.n!==undefined)){
+        const prefixes=[...new Set(parts.map(x=>x.p.toUpperCase()))];
+        if(prefixes.length===1){
+          const nums=[...new Set(parts.map(x=>x.n))].sort((a,b)=>a-b);
+          const min=nums[0],max=nums[nums.length-1];
+          codigo=min===max?`${prefixes[0]}${min}`:`${prefixes[0]}${min}-${max}`;
+        }else{
+          codigo=codeList.join(' / ');
+        }
+      }else{
+        codigo=codeList.join(' / ');
+      }
+    }
+    const measures=[...g.measures];
+    const medida=measures.length===1?measures[0]:(measures.length>1?measures.join(' / '):'');
+    const [ancho_max,alto_max]=medida?medida.split(' x '):['',''];
+    return {tecnica:label,codigo,zona:g.zone,ancho_max,alto_max,_count:g.items.length};
+  });
 }
 
 function fmtTecnicaMarcaje(m){
@@ -493,7 +616,8 @@ function renderSI(p,inclM,inclV){
   if(p.peso_gr)dims.push(['Peso',p.peso_gr+' gr']);
   if(p.pais_origen)dims.push(['País',p.pais_origen]);
 
-  const mH=inclM&&p.marcaje?.length?`<div class="si-sec">Técnicas de marcaje</div><div>${p.marcaje.map(m=>`<div class="mrow"><span class="mtec">${fmtTecnicaMarcaje(m)}</span>${m.codigo?`<span class="mcod">${m.codigo}</span>`:''}<span class="mmed">${fmtMedidaMarcaje(m,true)}</span></div>`).join('')}</div>`:'';
+  const mView=getMarcajesVista(p.marcaje);
+  const mH=inclM&&mView.length?`<div class="si-sec">T?cnicas de marcaje</div><div>${mView.map(m=>`<div class="mrow"><span class="mtec">${fmtTecnicaMarcaje(m)}</span>${m.codigo?`<span class="mcod">${m.codigo}</span>`:''}<span class="mmed">${fmtMedidaMarcaje(m,true)}</span></div>`).join('')}</div>`:'';
   const vH=inclV&&p.variantes?.length?`<div class="si-sec" style="margin-top:10px">Variantes (${p.variantes.length})</div><div class="vars">${p.variantes.map(v=>`<div class="vchip">${v.color_hex?`<div class="dot" style="background:${v.color_hex}"></div>`:''}<span>${v.descripcion||v.codigo}</span></div>`).join('')}</div>`:'';
 
   // Selector de imágenes
@@ -697,7 +821,8 @@ async function generarPDF(){
       yR+=rowH+3;
     }
 
-    if(inclM&&p.marcaje?.length){
+    const mView=getMarcajesVista(p.marcaje);
+    if(inclM&&mView.length){
       doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(160,155,148);
       doc.text('TÉCNICAS DE MARCAJE',col2,yR);yR+=5;
       // Cabecera tabla
@@ -707,7 +832,7 @@ async function generarPDF(){
       doc.text('Técnica',col2+2,yR+.3);
       doc.text('Medida max.',W-mar-2,yR+.3,{align:'right'});
       yR+=5;
-      p.marcaje.forEach((m,i)=>{
+      mView.forEach((m,i)=>{
         doc.setFont('helvetica','normal');doc.setFontSize(7);
         const medida=fmtMedidaMarcaje(m,false);
         const textW=medida?tw-31:tw-5;
