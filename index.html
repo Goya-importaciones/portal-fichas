@@ -430,7 +430,10 @@ function deselAll(){
   updUI();
 }
 
-function togO(cb,id){document.getElementById(id).classList.toggle('on',cb.checked);}
+function togO(cb,id){
+  document.getElementById(id).classList.toggle('on',cb.checked);
+  if(document.getElementById('ov').classList.contains('open'))renderModal();
+}
 
 async function abrirModal(){
   if(!sel.size)return;
@@ -692,20 +695,23 @@ async function generarPDF(){
       doc.text('Medida',W-mar-2,yR+.3,{align:'right'});
       yR+=5;
       p.marcaje.forEach((m,i)=>{
-        if(i%2===0){doc.setFillColor(250,249,247);doc.rect(col2,yR-3.5,tw,5.5,'F');}
-        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(24,22,15);
-        doc.text(m.tecnica,col2+2,yR+.3,{maxWidth:tw-28});
+        doc.setFont('helvetica','normal');doc.setFontSize(7);
+        const medida=m.ancho_max&&m.alto_max?`${m.ancho_max}x${m.alto_max}`:'';
+        const textW=medida?tw-31:tw-5;
+        const lines=doc.splitTextToSize(m.tecnica||'',textW);
+        const rowH=Math.max(6,lines.length*3.6+2.4);
+        if(i%2===0){doc.setFillColor(250,249,247);doc.rect(col2,yR-3.7,tw,rowH,'F');}
+        doc.setTextColor(24,22,15);
+        doc.text(lines,col2+2,yR+.3,{lineHeightFactor:1.15});
         if(m.ancho_max&&m.alto_max){doc.setFont('helvetica','bold');doc.setTextColor(60,56,50);doc.text(`${m.ancho_max}×${m.alto_max}`,W-mar-2,yR+.3,{align:'right'});}
-        yR+=5.5;
+        yR+=rowH;
       });
     }
 
     // ── FOOTER ──
-    doc.setFillColor(238,235,230);doc.rect(0,H-8,W,8,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,155,148);
-    doc.text('Goya Importaciones · Zaragoza',mar,H-2.8);
-    doc.text(new Date().toLocaleDateString('es-ES'),W/2,H-2.8,{align:'center'});
-    doc.text(`${idx+1} / ${prods.length}`,W-mar,H-2.8,{align:'right'});
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(170,165,158);
+    doc.text(new Date().toLocaleDateString('es-ES'),W/2,H-4,{align:'center'});
+    doc.text(`${idx+1} / ${prods.length}`,W-mar,H-4,{align:'right'});
   }
 
   doc.save(`goya-fichas-${new Date().toISOString().slice(0,10)}.pdf`);
