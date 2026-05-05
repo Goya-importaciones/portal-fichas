@@ -477,7 +477,7 @@ function fmtMedidaMarcaje(m,conUnidad){
   if(m.ancho_max&&m.alto_max)return `${m.ancho_max} x ${m.alto_max}${conUnidad?' cm max.':''}`;
   const inferred=(m.tecnica||'').match(/MAX\.?\s*([0-9]+(?:[,.][0-9]+)?)\s*[Xx]\s*([0-9]+(?:[,.][0-9]+)?)/);
   if(inferred)return `${inferred[1]} x ${inferred[2]}${conUnidad?' cm max.':''}`;
-  return '';
+  return 'Consultar';
 }
 
 function fmtTecnicaMarcaje(m){
@@ -675,8 +675,10 @@ async function generarPDF(){
       doc.text('DATOS TÉCNICOS',mar,yL);yL+=5;
       datos.forEach(([l,v])=>{
         doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(130,125,118);doc.text(l,mar,yL);
-        doc.setFont('helvetica','bold');doc.setTextColor(24,22,15);doc.text(v,mar+28,yL);
-        yL+=5.2;
+        doc.setFont('helvetica','bold');doc.setTextColor(24,22,15);
+        const vLines=doc.splitTextToSize(String(v),58);
+        doc.text(vLines,mar+28,yL,{lineHeightFactor:1.15});
+        yL+=Math.max(5.2,vLines.length*3.8+1.4);
       });
     }
 
