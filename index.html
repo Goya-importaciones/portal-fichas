@@ -156,6 +156,17 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 .imgthumb-ck::after{content:'';width:7px;height:4px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-1px)}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);background:var(--t);color:#fff;border-radius:var(--r);padding:9px 13px;font-size:13px;box-shadow:0 10px 26px rgba(0,0,0,.22);z-index:400;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.pov{display:none;position:fixed;inset:0;background:rgba(10,9,7,.42);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.pov.open{display:flex}
+.pbox{width:100%;max-width:360px;background:var(--s);border-radius:var(--rl);box-shadow:0 18px 55px rgba(0,0,0,.22);padding:18px}
+.ptitle{font-family:Segoe UI,Arial,sans-serif;font-weight:700;font-size:15px;margin-bottom:6px}
+.pmsg{font-size:12px;color:var(--mu);line-height:1.45;margin-bottom:12px}
+.pbar{height:8px;background:var(--bg);border-radius:20px;overflow:hidden;border:1px solid var(--b)}
+.pbar-in{height:100%;width:0;background:var(--t);border-radius:20px;transition:width .18s ease}
+.guide-body{display:grid;gap:10px;color:var(--mu);font-size:13px;line-height:1.5}
+.guide-body strong{color:var(--t)}
+.guide-body ul{padding-left:18px}
+.guide-body li{margin:3px 0}
 
 .mft{padding:1rem 1.5rem;border-top:1px solid var(--b);display:flex;gap:8px;justify-content:flex-end;background:var(--s)}
 .btn-c{background:none;border:1px solid var(--b);border-radius:var(--r);padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--mu)}
@@ -174,6 +185,7 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
     <input type="text" id="q" placeholder="Buscar referencia o nombre…" id="qinput">
   </div>
   <div class="hd-r">
+    <button class="btn-s" onclick="abrirGuia(false)">Guía</button>
     <button class="btn-s" onclick="abrirModal()">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
       Selección <span class="badge" id="badge">0</span>
@@ -236,11 +248,42 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
   </div>
 </div>
 
+<!-- GUIA -->
+<div class="ov" id="guideOv" onclick="guideOvClick(event)">
+  <div class="modal" style="max-width:620px">
+    <div class="mhd">
+      <h2>Guía rápida</h2>
+      <button class="mcl" onclick="cerrarGuia()">×</button>
+    </div>
+    <div class="mbody">
+      <div class="guide-body">
+        <p><strong>Selecciona productos</strong> haciendo clic en las tarjetas del catálogo. El contador de la cabecera muestra cuántos llevas.</p>
+        <p><strong>Configura la ficha</strong> desde “Generar fichas”: puedes incluir técnicas de marcaje, variantes y elegir qué imágenes entran en el PDF.</p>
+        <p><strong>Imágenes por producto:</strong> puedes seleccionar hasta 6. La primera imagen queda marcada por defecto.</p>
+        <p><strong>Exportación recomendada:</strong> genera PDFs de hasta 20 productos por vez para que el navegador no se bloquee.</p>
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn-pdf" onclick="cerrarGuia()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESO PDF -->
+<div class="pov" id="pdfProgress">
+  <div class="pbox">
+    <div class="ptitle">Generando PDF</div>
+    <div class="pmsg" id="pdfProgressMsg">Preparando fichas...</div>
+    <div class="pbar"><div class="pbar-in" id="pdfProgressBar"></div></div>
+  </div>
+</div>
+
 <script>
 let PRODS=[],PROD_BY_REF=new Map(),filt=[],sel=new Set(),pg=1,ord='nuevo';
 const PPG=24;
 const MAX_MODAL_IMGS=12;
 const MAX_PDF_IMGS=6;
+const MAX_PDF_PRODUCTS=20;
 const imgSel={};
 let activeChip=null;
 let DETALLE=null; // se carga lazy al primer modal
@@ -279,6 +322,7 @@ async function init(){
     PROD_BY_REF = new Map(PRODS.map(p=>[p.ref,p]));
     document.getElementById('q').addEventListener('input', debounce(filtrar, 220));
     filtrar();
+    mostrarGuiaInicial();
   }catch(e){
     document.getElementById('grid').innerHTML='<div class="empty"><strong>Error al cargar los datos</strong><span>Asegúrate de que los archivos JSON están en la misma carpeta</span></div>';
   }
@@ -440,6 +484,29 @@ async function abrirModal(){
 }
 function cerrar(){document.getElementById('ov').classList.remove('open');document.body.style.overflow='';}
 function ovClick(e){if(e.target===document.getElementById('ov'))cerrar();}
+
+function mostrarGuiaInicial(){
+  try{
+    if(localStorage.getItem('goyaGuideSeen')==='1')return;
+    setTimeout(()=>abrirGuia(true),350);
+  }catch(e){}
+}
+
+function abrirGuia(auto){
+  const ov=document.getElementById('guideOv');
+  ov.dataset.auto=auto?'1':'0';
+  ov.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function cerrarGuia(){
+  const ov=document.getElementById('guideOv');
+  ov.classList.remove('open');
+  document.body.style.overflow='';
+  try{localStorage.setItem('goyaGuideSeen','1');}catch(e){}
+}
+
+function guideOvClick(e){if(e.target===document.getElementById('guideOv'))cerrarGuia();}
 
 function renderModal(){
   const inclM=document.querySelector('#oM input').checked;
@@ -758,6 +825,19 @@ function qSel(ref){
 
 function esc(s){return(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function cssEsc(s){return(s+'').replace(/\\/g,'\\\\').replace(/"/g,'\\"');}
+function nextFrame(){return new Promise(res=>requestAnimationFrame(()=>res()));}
+function setPdfProgress(done,total,msg){
+  const ov=document.getElementById('pdfProgress');
+  const bar=document.getElementById('pdfProgressBar');
+  const txt=document.getElementById('pdfProgressMsg');
+  const pct=total?Math.min(100,Math.round((done/total)*100)):0;
+  ov.classList.add('open');
+  bar.style.width=pct+'%';
+  txt.textContent=msg||`Generando... ${pct}%`;
+}
+function hidePdfProgress(){
+  document.getElementById('pdfProgress').classList.remove('open');
+}
 
 // ─── PDF ───
 async function generarPDF(){
@@ -772,27 +852,39 @@ async function generarPDF(){
   const inclM=document.querySelector('#oM input').checked;
   const inclV=document.querySelector('#oV input').checked;
   const prods=[...sel].map(r=>(DETALLE&&DETALLE[r])||PROD_BY_REF.get(r)).filter(Boolean);
+  if(prods.length>MAX_PDF_PRODUCTS){
+    btn.disabled=false;
+    btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg> Previsualizar PDF';
+    alert(`Has seleccionado ${prods.length} productos. Para que el navegador no se bloquee, exporta como maximo ${MAX_PDF_PRODUCTS} productos por PDF.`);
+    return;
+  }
 
   const W=210,H=297,mar=14,col2=W/2+2;
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const totalImgs=prods.reduce((acc,p)=>{
+    const imgs=imgSel[p.ref]?[...imgSel[p.ref]]:(p.imagenes?.slice(0,1)||[]);
+    return acc+Math.min(imgs.length,6);
+  },0);
+  const totalSteps=Math.max(1,totalImgs+prods.length+1);
+  let doneSteps=0;
+  setPdfProgress(doneSteps,totalSteps,'Preparando fichas...');
+  await nextFrame();
 
   for(let idx=0;idx<prods.length;idx++){
     if(idx>0)doc.addPage();
     const p=prods[idx];
     const selImgs=imgSel[p.ref]?[...imgSel[p.ref]]:(p.imagenes?.slice(0,1)||[]);
-
-    // ── Franja superior muy fina de color ──
-    doc.setFillColor(24,22,15);
-    doc.rect(0,0,W,8,'F');
+    setPdfProgress(doneSteps,totalSteps,`Producto ${idx+1} de ${prods.length}: ${p.ref}`);
+    await nextFrame();
 
     // Nombre producto — grande, protagonista
     doc.setFont('helvetica','bold');
     doc.setFontSize(22);
     doc.setTextColor(24,22,15);
     const nameLines=doc.splitTextToSize(p.nombre,W-mar*2);
-    doc.text(nameLines,mar,18);
-    let y=18+nameLines.length*9;
+    doc.text(nameLines,mar,24);
+    let y=24+nameLines.length*9;
 
     // Ref y familia en gris pequeño
     doc.setFont('helvetica','normal');
@@ -815,8 +907,14 @@ async function generarPDF(){
       const perRow=nImgs===1?1:nImgs===2?2:3;
       const imgW=(availW-(perRow-1)*3)/perRow;
       const nRows=Math.ceil(nImgs/perRow);
-      // Precargar todas a la vez
-      const b64s=await Promise.all(selImgs.slice(0,nImgs).map(u=>i2b(u,imgW,imgH)));
+      const b64s=[];
+      for(let k=0;k<nImgs;k++){
+        setPdfProgress(doneSteps,totalSteps,`Imagen ${k+1} de ${nImgs} - producto ${idx+1} de ${prods.length}`);
+        b64s.push(await i2b(selImgs[k],imgW,imgH));
+        doneSteps++;
+        setPdfProgress(doneSteps,totalSteps,`Imagen ${k+1} de ${nImgs} lista`);
+        await nextFrame();
+      }
       let ix=mar,iy=y,col=0;
       for(let i=0;i<nImgs;i++){
         if(b64s[i])doc.addImage(b64s[i],'JPEG',ix,iy,imgW,imgH,undefined,'FAST');
@@ -903,6 +1001,9 @@ async function generarPDF(){
       });
       yR=chipTop+rowChipH+3;
     }
+    doneSteps++;
+    setPdfProgress(doneSteps,totalSteps,`Ficha ${idx+1} de ${prods.length} lista`);
+    await nextFrame();
 
     // ── FOOTER ──
     doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(170,165,158);
@@ -911,6 +1012,7 @@ async function generarPDF(){
   }
 
   const blob=doc.output('blob');
+  setPdfProgress(totalSteps,totalSteps,'Abriendo vista previa...');
   const url=URL.createObjectURL(blob);
   const w=window.open(url,'_blank');
   if(!w){
@@ -921,6 +1023,7 @@ async function generarPDF(){
   }
   btn.disabled=false;
   btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg> Previsualizar PDF';
+  hidePdfProgress();
 }
 
 function i2b(url,targetW,targetH){
