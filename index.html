@@ -258,9 +258,10 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
     <div class="mbody">
       <div class="guide-body">
         <p><strong>Selecciona productos</strong> haciendo clic en las tarjetas del catálogo. El contador de la cabecera muestra cuántos llevas.</p>
+        <p><strong>Vaciar selección:</strong> usa el botón de limpiar situado junto al contador de selección para desmarcar todos los productos de una vez.</p>
         <p><strong>Configura la ficha</strong> desde “Generar fichas”: puedes incluir técnicas de marcaje, variantes y elegir qué imágenes entran en el PDF.</p>
         <p><strong>Imágenes por producto:</strong> puedes seleccionar hasta 6. La primera imagen queda marcada por defecto.</p>
-        <p><strong>Exportación recomendada:</strong> genera PDFs de hasta 20 productos por vez para que el navegador no se bloquee.</p>
+        <p><strong>Exportación recomendada:</strong> genera PDFs de hasta 20 productos por vez para mantener una vista previa ágil.</p>
       </div>
     </div>
     <div class="mft">
@@ -663,9 +664,9 @@ function simplificarTecnicaMarcaje(tecnica){
 
   if(/ETIQUETA|LABEL/.test(t)){
     if(/ADHESIVE|ADHESIVA/.test(t))return `Etiqueta adhesiva${ref}`;
-    if(/BAG|BOLSA/.test(t))return `Etiqueta para bolsa${ref}`;
-    if(/BLANKET|MANTA/.test(t))return `Etiqueta para manta${ref}`;
     if(/TOILETRY|NECESER/.test(t))return `Etiqueta para neceser${ref}`;
+    if(/BLANKET|MANTA/.test(t))return `Etiqueta para manta${ref}`;
+    if(/BAG|BOLSA/.test(t))return `Etiqueta para bolsa${ref}`;
     if(/PAREO/.test(t))return `Etiqueta para pareo${ref}`;
     if(/ROUND|REDONDA/.test(t))return `Etiqueta redonda${ref}`;
     if(/SQUARE|CUADRADA/.test(t))return `Etiqueta cuadrada${ref}`;
