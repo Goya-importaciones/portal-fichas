@@ -879,26 +879,29 @@ async function generarPDF(){
       doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(160,155,148);
       doc.text('TÉCNICAS DE MARCAJE',col2,yR);yR+=5;
       const tw=W-col2-mar;
-      let chipX=col2,chipY=yR;
+      let chipX=col2,chipTop=yR;
       let rowChipH=0;
       mView.forEach(m=>{
         const label=fmtTecnicaMarcaje(m);
-        doc.setFont('helvetica','bold');doc.setFontSize(6.2);
-        const maxChipW=Math.min(46,tw);
-        const naturalW=doc.getTextWidth(label)+8;
-        const chipW=Math.min(maxChipW,Math.max(24,naturalW));
-        const lines=doc.splitTextToSize(label,chipW-8);
-        const chipH=Math.max(6.2,lines.length*3.3+3.8);
-        if(chipX+chipW>W-mar){chipX=col2;chipY+=rowChipH+2.2;rowChipH=0;}
+        doc.setFont('helvetica','bold');doc.setFontSize(7.4);
+        const maxChipW=Math.min(62,tw);
+        const naturalW=doc.getTextWidth(label)+10;
+        const chipW=Math.min(maxChipW,Math.max(30,naturalW));
+        const lines=doc.splitTextToSize(label,chipW-9);
+        const lineH=4.1;
+        const chipH=Math.max(8,lines.length*lineH+4.2);
+        if(chipX+chipW>W-mar){chipX=col2;chipTop+=rowChipH+2.8;rowChipH=0;}
         doc.setFillColor(244,242,238);
         doc.setDrawColor(220,215,208);
-        doc.roundedRect(chipX,chipY-4.4,chipW,chipH,2.4,2.4,'FD');
+        doc.roundedRect(chipX,chipTop,chipW,chipH,3.2,3.2,'FD');
         doc.setTextColor(80,76,70);
-        doc.text(lines,chipX+4,chipY-.5,{lineHeightFactor:1.12});
+        const textBlockH=lines.length*lineH;
+        const textY=chipTop+((chipH-textBlockH)/2)+3;
+        doc.text(lines,chipX+4.5,textY,{lineHeightFactor:1.15});
         rowChipH=Math.max(rowChipH,chipH);
-        chipX+=chipW+2;
+        chipX+=chipW+2.5;
       });
-      yR=chipY+rowChipH+2;
+      yR=chipTop+rowChipH+3;
     }
 
     // ── FOOTER ──
