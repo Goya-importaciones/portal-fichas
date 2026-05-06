@@ -94,7 +94,10 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 .spin{width:26px;height:26px;border:2px solid var(--b);border-top-color:var(--t);border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
-.pag{display:flex;justify-content:center;gap:5px;margin-top:1.5rem;flex-wrap:wrap}
+.pag{display:flex;justify-content:center;margin-top:1.5rem}
+.pag-inner{display:grid;grid-template-columns:36px minmax(220px,360px) 36px;gap:6px;width:min(100%,460px);align-items:center}
+.pag-pages{display:flex;justify-content:center;gap:5px;min-height:32px;overflow:hidden}
+.psep{color:var(--hi);padding:5px 3px;line-height:20px}
 .pbt{padding:5px 9px;border:1px solid var(--b);border-radius:var(--r);background:var(--s);font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;color:var(--mu);transition:all .12s;min-width:32px;text-align:center}
 .pbt:hover{border-color:var(--t);color:var(--t)}
 .pbt.act{background:var(--t);border-color:var(--t);color:#fff}
@@ -281,7 +284,9 @@ body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(
 
 <script>
 let PRODS=[],PROD_BY_REF=new Map(),filt=[],sel=new Set(),pg=1,ord='nuevo';
-const PPG=24;
+const GRID_ROWS=3;
+const CARD_MIN_WIDTH=185;
+const GRID_GAP=10;
 const MAX_MODAL_IMGS=12;
 const MAX_PDF_IMGS=6;
 const MAX_PDF_PRODUCTS=20;
@@ -322,6 +327,7 @@ async function init(){
     }));
     PROD_BY_REF = new Map(PRODS.map(p=>[p.ref,p]));
     document.getElementById('q').addEventListener('input', debounce(filtrar, 220));
+    window.addEventListener('resize', debounce(()=>render(), 180));
     filtrar();
     mostrarGuiaInicial();
   }catch(e){
@@ -390,16 +396,25 @@ function ordenar(v,re=true){
   if(re)render();
 }
 
+function getPageSize(){
+  const g=document.getElementById('grid');
+  const cols=Math.max(1,Math.floor((g.clientWidth+GRID_GAP)/(CARD_MIN_WIDTH+GRID_GAP)));
+  return cols*GRID_ROWS;
+}
+
 function render(){
   const tot=filt.length;
-  const page=filt.slice((pg-1)*PPG,pg*PPG);
+  const ppg=getPageSize();
+  const pages=Math.max(1,Math.ceil(tot/ppg));
+  if(pg>pages)pg=pages;
+  const page=filt.slice((pg-1)*ppg,pg*ppg);
   document.getElementById('tInfo').innerHTML=`<strong>${tot}</strong> producto${tot!==1?'s':''} encontrado${tot!==1?'s':''}`;
   const g=document.getElementById('grid');
   if(!page.length){g.innerHTML='<div class="empty"><strong>Sin resultados</strong>Prueba con otro término</div>';document.getElementById('pag').innerHTML='';return;}
   // Usar requestAnimationFrame para no bloquear el hilo de UI
   requestAnimationFrame(()=>{
     g.innerHTML=page.map(card).join('');
-    renderPag(tot);
+    renderPag(tot,ppg);
     initLazyLoad();
   });
 }
@@ -429,19 +444,27 @@ function card(p){
   </div>`;
 }
 
-function renderPag(tot){
-  const pages=Math.ceil(tot/PPG);
+function renderPag(tot,ppg=getPageSize()){
+  const pages=Math.ceil(tot/ppg);
   if(pages<=1){document.getElementById('pag').innerHTML='';return;}
-  let h=`<button class="pbt" onclick="goPg(${pg-1})" ${pg===1?'disabled':''}>←</button>`;
+  let nums='';
   for(let i=1;i<=pages;i++){
-    if(i===1||i===pages||Math.abs(i-pg)<=2)h+=`<button class="pbt${i===pg?' act':''}" onclick="goPg(${i})">${i}</button>`;
-    else if(Math.abs(i-pg)===3)h+=`<span style="color:var(--hi);padding:0 3px">…</span>`;
+    if(i===1||i===pages||Math.abs(i-pg)<=2)nums+=`<button class="pbt${i===pg?' act':''}" onclick="goPg(${i})">${i}</button>`;
+    else if(Math.abs(i-pg)===3)nums+=`<span class="psep">…</span>`;
   }
-  h+=`<button class="pbt" onclick="goPg(${pg+1})" ${pg===pages?'disabled':''}>→</button>`;
+  const h=`<div class="pag-inner">
+    <button class="pbt" onclick="goPg(${pg-1})" ${pg===1?'disabled':''}>←</button>
+    <div class="pag-pages">${nums}</div>
+    <button class="pbt" onclick="goPg(${pg+1})" ${pg===pages?'disabled':''}>→</button>
+  </div>`;
   document.getElementById('pag').innerHTML=h;
 }
 
-function goPg(n){pg=n;render();window.scrollTo({top:52,behavior:'smooth'});}
+function goPg(n){
+  const pages=Math.ceil(filt.length/getPageSize());
+  pg=Math.min(Math.max(1,n),pages);
+  render();
+}
 
 function togSel(ref,el){
   if(sel.has(ref)){sel.delete(ref);el.classList.remove('sel');if(imgSel[ref])delete imgSel[ref];}
@@ -512,22 +535,47 @@ function guideOvClick(e){if(e.target===document.getElementById('guideOv'))cerrar
 function renderModal(){
   const inclM=document.querySelector('#oM input').checked;
   const inclV=document.querySelector('#oV input').checked;
-  // Usar detalles si disponibles, si no el grid (degradación)
+  // Usar detalles si disponibles, conservando la imagen principal corregida del grid.
   const prods=[...sel].map(r=>{
     const det=DETALLE?DETALLE[r]:null;
     const grid=PROD_BY_REF.get(r);
-    return det||grid;
+    return det?{...grid,...det,img:grid?.img||det.img}:grid;
   }).filter(Boolean);
 
   prods.forEach(p=>{
-    if(!imgSel[p.ref]&&p.imagenes?.length){
-      imgSel[p.ref]=new Set([p.imagenes[0]]);
-    } else if(!imgSel[p.ref]&&p.img){
-      imgSel[p.ref]=new Set([p.img]);
+    if(!imgSel[p.ref]){
+      const primary=primaryPdfImage(p);
+      if(primary)imgSel[p.ref]=new Set([primary]);
     }
   });
 
   document.getElementById('slist').innerHTML=prods.map(p=>renderSI(p,inclM,inclV)).join('');
+}
+
+function imgKey(url){
+  return (url||'').split('?')[0].split('/').pop().replace(/_(415|550)(\.[a-zA-Z0-9]+)$/,'$2').toLowerCase();
+}
+
+function primaryPdfImage(p){
+  if(p.img&&p.imagenes?.length){
+    const key=imgKey(p.img);
+    const match=p.imagenes.find(url=>imgKey(url)===key);
+    if(match)return match;
+  }
+  return p.img||p.imagenes?.[0]||'';
+}
+
+function orderedPdfImages(p){
+  const imgs=[...(p.imagenes||[])];
+  const primary=primaryPdfImage(p);
+  if(!primary)return imgs;
+  const seen=new Set();
+  return [primary,...imgs].filter(url=>{
+    const key=imgKey(url)||url;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normTxt(s){
@@ -729,7 +777,7 @@ function simplificarZonaMarcaje(zona){
 }
 
 function renderSI(p,inclM,inclV){
-  const imgs=p.imagenes||[];
+  const imgs=orderedPdfImages(p);
   const dims=[];
   if(p.dimensiones){const d=p.dimensiones;const pts=[d.ancho,d.largo,d.alto].filter(Boolean);if(pts.length)dims.push(['Medidas',pts.join(' × ')+' cm']);if(d.diametro)dims.push(['Diámetro',d.diametro+' cm']);}
   if(p.material)dims.push(['Material',p.material]);
@@ -852,11 +900,15 @@ async function generarPDF(){
   const {jsPDF}=window.jspdf;
   const inclM=document.querySelector('#oM input').checked;
   const inclV=document.querySelector('#oV input').checked;
-  const prods=[...sel].map(r=>(DETALLE&&DETALLE[r])||PROD_BY_REF.get(r)).filter(Boolean);
+  const prods=[...sel].map(r=>{
+    const det=DETALLE&&DETALLE[r];
+    const grid=PROD_BY_REF.get(r);
+    return det?{...grid,...det,img:grid?.img||det.img}:grid;
+  }).filter(Boolean);
   if(prods.length>MAX_PDF_PRODUCTS){
     btn.disabled=false;
     btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3"/><path d="M20 17v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2"/></svg> Previsualizar PDF';
-    alert(`Has seleccionado ${prods.length} productos. Para que el navegador no se bloquee, exporta como maximo ${MAX_PDF_PRODUCTS} productos por PDF.`);
+    alert(`Has seleccionado ${prods.length} productos. Para mantener una exportacion agil, exporta como maximo ${MAX_PDF_PRODUCTS} productos por PDF.`);
     return;
   }
 
@@ -864,7 +916,7 @@ async function generarPDF(){
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const totalImgs=prods.reduce((acc,p)=>{
-    const imgs=imgSel[p.ref]?[...imgSel[p.ref]]:(p.imagenes?.slice(0,1)||[]);
+    const imgs=imgSel[p.ref]?[...imgSel[p.ref]]:[primaryPdfImage(p)].filter(Boolean);
     return acc+Math.min(imgs.length,6);
   },0);
   const totalSteps=Math.max(1,totalImgs+prods.length+1);
@@ -875,7 +927,7 @@ async function generarPDF(){
   for(let idx=0;idx<prods.length;idx++){
     if(idx>0)doc.addPage();
     const p=prods[idx];
-    const selImgs=imgSel[p.ref]?[...imgSel[p.ref]]:(p.imagenes?.slice(0,1)||[]);
+    const selImgs=imgSel[p.ref]?[...imgSel[p.ref]]:[primaryPdfImage(p)].filter(Boolean);
     setPdfProgress(doneSteps,totalSteps,`Producto ${idx+1} de ${prods.length}: ${p.ref}`);
     await nextFrame();
 
