@@ -279,15 +279,13 @@ async function init(){
     PROD_BY_REF = new Map(PRODS.map(p=>[p.ref,p]));
     document.getElementById('q').addEventListener('input', debounce(filtrar, 220));
     filtrar();
-    precargarDetalles();
-    // Parsear detalles también (ya descargado en paralelo)
   }catch(e){
     document.getElementById('grid').innerHTML='<div class="empty"><strong>Error al cargar los datos</strong><span>Asegúrate de que los archivos JSON están en la misma carpeta</span></div>';
   }
 }
 
 async function cargarDetalles(){
-  // Ya cargado en init — no-op
+  // El detalle se carga bajo demanda para que el grid inicial sea ligero.
   return Promise.resolve();
 }
 
@@ -303,12 +301,6 @@ async function asegurarDetalles(){
       .catch(err=>{detallePromise=null;throw err;});
   }
   return detallePromise;
-}
-
-function precargarDetalles(){
-  const start=()=>asegurarDetalles().catch(()=>{});
-  if('requestIdleCallback' in window)requestIdleCallback(start,{timeout:5000});
-  else setTimeout(start,1800);
 }
 
 function togChip(tipo){
@@ -888,20 +880,25 @@ async function generarPDF(){
       doc.text('TÉCNICAS DE MARCAJE',col2,yR);yR+=5;
       const tw=W-col2-mar;
       let chipX=col2,chipY=yR;
+      let rowChipH=0;
       mView.forEach(m=>{
         const label=fmtTecnicaMarcaje(m);
-        doc.setFont('helvetica','bold');doc.setFontSize(6.5);
-        const chipW=Math.min(tw,doc.getTextWidth(label)+8);
-        const chipH=5.8;
-        if(chipX+chipW>W-mar){chipX=col2;chipY+=chipH+2;}
+        doc.setFont('helvetica','bold');doc.setFontSize(6.2);
+        const maxChipW=Math.min(46,tw);
+        const naturalW=doc.getTextWidth(label)+8;
+        const chipW=Math.min(maxChipW,Math.max(24,naturalW));
+        const lines=doc.splitTextToSize(label,chipW-8);
+        const chipH=Math.max(6.2,lines.length*3.3+3.8);
+        if(chipX+chipW>W-mar){chipX=col2;chipY+=rowChipH+2.2;rowChipH=0;}
         doc.setFillColor(244,242,238);
         doc.setDrawColor(220,215,208);
-        doc.roundedRect(chipX,chipY-4.2,chipW,chipH,2.4,2.4,'FD');
+        doc.roundedRect(chipX,chipY-4.4,chipW,chipH,2.4,2.4,'FD');
         doc.setTextColor(80,76,70);
-        doc.text(label,chipX+4,chipY-.3,{maxWidth:chipW-8});
+        doc.text(lines,chipX+4,chipY-.5,{lineHeightFactor:1.12});
+        rowChipH=Math.max(rowChipH,chipH);
         chipX+=chipW+2;
       });
-      yR=chipY+6;
+      yR=chipY+rowChipH+2;
     }
 
     // ── FOOTER ──
